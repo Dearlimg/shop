@@ -3,12 +3,12 @@ database:
   port: 3307
   user: root
   password: sta_go
-  database: blog
+  database: durlim
   charset: utf8mb4
 
 redis:
-  addr: localhost:6379      # Redis地址
-  password: ""              # Redis密码，无密码留空
+  addr: 47.118.19.28:6379      # Redis地址
+  password: "sta_go"              # Redis密码，无密码留空
   db: 0                     # Redis数据库编号
 
 server:
