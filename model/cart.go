@@ -4,13 +4,18 @@ import "time"
 
 // CartItem 购物车项模型
 type CartItem struct {
-	ID        int       `json:"id" gorm:"primaryKey"`
-	UserID    int       `json:"user_id" gorm:"not null;index"`
-	ProductID int       `json:"product_id" gorm:"not null;index"`
+	ID        int       `json:"id" gorm:"primaryKey;autoIncrement"`
+	UserID    int       `json:"user_id" gorm:"not null;index:idx_user_id"`
+	ProductID int       `json:"product_id" gorm:"not null;index:idx_product_id"`
 	Quantity  int       `json:"quantity" gorm:"default:1"`
-	Product   Product   `json:"product" gorm:"foreignKey:ProductID"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	Product   Product   `json:"product" gorm:"foreignKey:ProductID;constraint:OnDelete:CASCADE"`
+	CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt time.Time `json:"updated_at" gorm:"autoUpdateTime"`
+}
+
+// TableName 指定表名
+func (CartItem) TableName() string {
+	return "cart_items"
 }
 
 // AddToCartRequest 添加到购物车请求

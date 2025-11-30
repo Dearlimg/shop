@@ -1,9 +1,10 @@
 package logic
 
 import (
-	"database/sql"
+	"errors"
 	"fmt"
 
+	"gorm.io/gorm"
 	"shop/dao"
 	"shop/global/db"
 	"shop/model"
@@ -12,11 +13,12 @@ import (
 // CreateOrder 创建订单
 func CreateOrder(userID int, req *model.CreateOrderRequest) (int64, float64, error) {
 	// 开始事务
-	tx, err := db.DB.Begin()
-	if err != nil {
-		return 0, 0, fmt.Errorf("创建订单失败: %w", err)
-	}
-	defer tx.Rollback()
+	tx := db.DB.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
 
 	// 查询购物车项并计算总价
 	var totalPrice float64
@@ -30,14 +32,17 @@ func CreateOrder(userID int, req *model.CreateOrderRequest) (int64, float64, err
 	for _, cartItemID := range req.CartItemIDs {
 		cartItem, product, err := getCartItemWithProductTx(tx, cartItemID, userID)
 		if err != nil {
+			tx.Rollback()
 			return 0, 0, fmt.Errorf("查询购物车失败: %w", err)
 		}
 		if cartItem == nil {
+			tx.Rollback()
 			return 0, 0, fmt.Errorf("购物车项不存在")
 		}
 
 		// 检查库存
 		if cartItem.Quantity > product.Stock {
+			tx.Rollback()
 			return 0, 0, fmt.Errorf("商品库存不足: %s", product.Name)
 		}
 
@@ -52,73 +57,64 @@ func CreateOrder(userID int, req *model.CreateOrderRequest) (int64, float64, err
 	}
 
 	// 创建订单
-	result, err := tx.Exec(
-		"INSERT INTO orders (user_id, total_price, status) VALUES (?, ?, 'pending')",
-		userID, totalPrice,
-	)
-	if err != nil {
+	order := model.Order{
+		UserID:     userID,
+		TotalPrice: totalPrice,
+		Status:     "pending",
+	}
+	if err := tx.Create(&order).Error; err != nil {
+		tx.Rollback()
 		return 0, 0, fmt.Errorf("创建订单失败: %w", err)
 	}
 
-	orderID, _ := result.LastInsertId()
-
 	// 创建订单项并更新库存
 	for _, item := range orderItems {
-		_, err = tx.Exec(
-			"INSERT INTO order_items (order_id, product_id, quantity, price) VALUES (?, ?, ?, ?)",
-			orderID, item.productID, item.quantity, item.price,
-		)
-		if err != nil {
+		// 创建订单项
+		orderItem := model.OrderItem{
+			OrderID:   order.ID,
+			ProductID: item.productID,
+			Quantity:  item.quantity,
+			Price:     item.price,
+		}
+		if err := tx.Create(&orderItem).Error; err != nil {
+			tx.Rollback()
 			return 0, 0, fmt.Errorf("创建订单项失败: %w", err)
 		}
 
 		// 更新库存
-		_, err = tx.Exec(
-			"UPDATE products SET stock = stock - ? WHERE id = ?",
-			item.quantity, item.productID,
-		)
-		if err != nil {
+		if err := tx.Model(&model.Product{}).
+			Where("id = ?", item.productID).
+			Update("stock", gorm.Expr("stock - ?", item.quantity)).Error; err != nil {
+			tx.Rollback()
 			return 0, 0, fmt.Errorf("更新库存失败: %w", err)
 		}
 
 		// 删除购物车项
-		_, err = tx.Exec("DELETE FROM cart_items WHERE id = ? AND user_id = ?", item.cartItemID, userID)
-		if err != nil {
+		if err := tx.Where("id = ? AND user_id = ?", item.cartItemID, userID).
+			Delete(&model.CartItem{}).Error; err != nil {
 			// 这里不阻止订单创建，只记录错误
 		}
 	}
 
 	// 提交事务
-	if err = tx.Commit(); err != nil {
+	if err := tx.Commit().Error; err != nil {
 		return 0, 0, fmt.Errorf("提交订单失败: %w", err)
 	}
 
-	return orderID, totalPrice, nil
+	return int64(order.ID), totalPrice, nil
 }
 
 // getCartItemWithProductTx 在事务中获取购物车项及其商品信息
-func getCartItemWithProductTx(tx *sql.Tx, cartItemID, userID int) (*model.CartItem, *model.Product, error) {
+func getCartItemWithProductTx(tx *gorm.DB, cartItemID, userID int) (*model.CartItem, *model.Product, error) {
 	var cartItem model.CartItem
-	var product model.Product
-	err := tx.QueryRow(
-		`SELECT ci.id, ci.user_id, ci.product_id, ci.quantity,
-			p.id, p.name, p.price, p.stock
-		FROM cart_items ci
-		JOIN products p ON ci.product_id = p.id
-		WHERE ci.id = ? AND ci.user_id = ?`,
-		cartItemID, userID,
-	).Scan(
-		&cartItem.ID, &cartItem.UserID, &cartItem.ProductID, &cartItem.Quantity,
-		&product.ID, &product.Name, &product.Price, &product.Stock,
-	)
-
-	if err == sql.ErrNoRows {
-		return nil, nil, nil
-	}
+	err := tx.Preload("Product").Where("id = ? AND user_id = ?", cartItemID, userID).First(&cartItem).Error
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil, nil
+		}
 		return nil, nil, err
 	}
-	return &cartItem, &product, nil
+	return &cartItem, &cartItem.Product, nil
 }
 
 // GetOrders 获取订单历史

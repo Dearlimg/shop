@@ -12,6 +12,7 @@
 ## 技术栈
 
 - **后端**: Hertz (Go 语言) - RESTful API
+- **ORM**: GORM - Go 语言的 ORM 框架
 - **前端**: HTML + JavaScript
 - **数据库**: MySQL
 
