@@ -4,8 +4,8 @@ import "time"
 
 // Order 订单模型
 type Order struct {
-	ID         int         `json:"id" gorm:"primaryKey;autoIncrement"`
-	UserID     int         `json:"user_id" gorm:"not null;index:idx_user_id"`
+	ID         int         `json:"id" gorm:"primaryKey;autoIncrement;type:int"`
+	UserID     int         `json:"user_id" gorm:"type:int;not null;index:idx_user_id"`
 	TotalPrice float64     `json:"total_price" gorm:"type:decimal(10,2);not null"`
 	Status     string      `json:"status" gorm:"type:varchar(20);default:'pending'"`
 	Items      []OrderItem `json:"items" gorm:"foreignKey:OrderID;constraint:OnDelete:CASCADE"`
@@ -20,10 +20,10 @@ func (Order) TableName() string {
 
 // OrderItem 订单项模型
 type OrderItem struct {
-	ID        int       `json:"id" gorm:"primaryKey;autoIncrement"`
-	OrderID   int       `json:"order_id" gorm:"not null;index:idx_order_id"`
-	ProductID int       `json:"product_id" gorm:"not null;index:idx_product_id"`
-	Quantity  int       `json:"quantity" gorm:"not null"`
+	ID        int       `json:"id" gorm:"primaryKey;autoIncrement;type:int"`
+	OrderID   int       `json:"order_id" gorm:"type:int;not null;index:idx_order_id"`
+	ProductID int       `json:"product_id" gorm:"type:int;not null;index:idx_product_id"`
+	Quantity  int       `json:"quantity" gorm:"type:int;not null"`
 	Price     float64   `json:"price" gorm:"type:decimal(10,2);not null"`
 	Product   Product   `json:"product" gorm:"foreignKey:ProductID"`
 	CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime"`

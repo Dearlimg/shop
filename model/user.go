@@ -4,7 +4,7 @@ import "time"
 
 // User 用户模型
 type User struct {
-	ID        int       `json:"id" gorm:"primaryKey;autoIncrement"`
+	ID        int       `json:"id" gorm:"primaryKey;autoIncrement;type:int"`
 	Username  string    `json:"username" gorm:"type:varchar(50);uniqueIndex;not null"`
 	Password  string    `json:"-" gorm:"type:varchar(255);not null"`
 	Email     string    `json:"email" gorm:"type:varchar(100);uniqueIndex"`

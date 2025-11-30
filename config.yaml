@@ -1,6 +1,6 @@
 database:
   host: 47.118.19.28
-  port: 3306
+  port: 3307
   user: root
   password: sta_go
   database: blog

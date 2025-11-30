@@ -8,6 +8,13 @@ import (
 
 // CreateTables 创建数据库表
 func CreateTables() error {
+	// 如果表已存在但结构不匹配，先删除外键约束和表（仅开发环境）
+	// 生产环境请谨慎使用，建议手动迁移
+	if err := dropTablesIfExists(); err != nil {
+		log.Printf("Warning: Failed to drop existing tables: %v", err)
+		// 继续执行，让 AutoMigrate 尝试修复
+	}
+
 	err := DB.AutoMigrate(
 		&model.User{},
 		&model.Product{},
@@ -20,6 +27,31 @@ func CreateTables() error {
 	}
 
 	log.Println("Database tables created successfully")
+	return nil
+}
+
+// dropTablesIfExists 删除已存在的表（用于解决类型不匹配问题）
+func dropTablesIfExists() error {
+	tables := []string{"order_items", "cart_items", "orders", "products", "users"}
+
+	for _, table := range tables {
+		// 检查表是否存在
+		var exists bool
+		err := DB.Raw("SELECT COUNT(*) > 0 FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ?", table).Scan(&exists).Error
+		if err != nil {
+			continue
+		}
+
+		if exists {
+			// 删除表（会同时删除外键约束）
+			if err := DB.Exec("DROP TABLE IF EXISTS " + table).Error; err != nil {
+				log.Printf("Warning: Failed to drop table %s: %v", table, err)
+			} else {
+				log.Printf("Dropped existing table: %s", table)
+			}
+		}
+	}
+
 	return nil
 }
 

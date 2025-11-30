@@ -4,10 +4,10 @@ import "time"
 
 // CartItem 购物车项模型
 type CartItem struct {
-	ID        int       `json:"id" gorm:"primaryKey;autoIncrement"`
-	UserID    int       `json:"user_id" gorm:"not null;index:idx_user_id"`
-	ProductID int       `json:"product_id" gorm:"not null;index:idx_product_id"`
-	Quantity  int       `json:"quantity" gorm:"default:1"`
+	ID        int       `json:"id" gorm:"primaryKey;autoIncrement;type:int"`
+	UserID    int       `json:"user_id" gorm:"type:int;not null;index:idx_user_id"`
+	ProductID int       `json:"product_id" gorm:"type:int;not null;index:idx_product_id"`
+	Quantity  int       `json:"quantity" gorm:"type:int;default:1"`
 	Product   Product   `json:"product" gorm:"foreignKey:ProductID;constraint:OnDelete:CASCADE"`
 	CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime"`
 	UpdatedAt time.Time `json:"updated_at" gorm:"autoUpdateTime"`
