@@ -13,10 +13,7 @@ import (
 
 // InitRouter 初始化路由
 func InitRouter(h *server.Hertz) {
-	// 静态文件服务
-	h.StaticFS("/static", &app.FS{Root: "./static", PathRewrite: app.NewPathSlashesStripper(1)})
-
-	// CORS中间件
+	// CORS中间件（需要在所有路由之前）
 	h.Use(func(ctx context.Context, c *app.RequestContext) {
 		c.Header("Access-Control-Allow-Origin", "*")
 		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
@@ -27,6 +24,9 @@ func InitRouter(h *server.Hertz) {
 		}
 		c.Next(ctx)
 	})
+
+	// 静态文件服务
+	h.StaticFS("/static", &app.FS{Root: "./static", PathRewrite: app.NewPathSlashesStripper(1)})
 
 	// API路由
 	apiGroup := h.Group("/api")
@@ -56,5 +56,10 @@ func InitRouter(h *server.Hertz) {
 	// 根路径重定向到前端
 	h.GET("/", func(ctx context.Context, c *app.RequestContext) {
 		c.Redirect(consts.StatusMovedPermanently, []byte("/static/index.html"))
+	})
+
+	// 测试页面
+	h.GET("/test", func(ctx context.Context, c *app.RequestContext) {
+		c.Redirect(consts.StatusMovedPermanently, []byte("/static/test.html"))
 	})
 }

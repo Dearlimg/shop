@@ -400,15 +400,17 @@
                     body: JSON.stringify({ username, email, password })
                 });
 
-                const data = await response.json();
+                const data = await response.json().catch(() => ({ error: '响应解析失败' }));
                 if (response.ok) {
                     showAlert('注册成功，请登录');
                     closeModal('registerModal');
                 } else {
-                    showAlert(data.error || '注册失败', 'error');
+                    showAlert(data.error || `注册失败 (${response.status})`, 'error');
+                    console.error('Register error:', response.status, data);
                 }
             } catch (error) {
-                showAlert('网络错误', 'error');
+                showAlert('网络错误: ' + error.message, 'error');
+                console.error('Register exception:', error);
             }
         }
 
@@ -429,7 +431,7 @@
                     body: JSON.stringify({ username, password })
                 });
 
-                const data = await response.json();
+                const data = await response.json().catch(() => ({ error: '响应解析失败' }));
                 if (response.ok) {
                     token = data.token;
                     currentUser = data.user;
@@ -440,10 +442,12 @@
                     loadCart();
                     loadOrders();
                 } else {
-                    showAlert(data.error || '登录失败', 'error');
+                    showAlert(data.error || `登录失败 (${response.status})`, 'error');
+                    console.error('Login error:', response.status, data);
                 }
             } catch (error) {
-                showAlert('网络错误', 'error');
+                showAlert('网络错误: ' + error.message, 'error');
+                console.error('Login exception:', error);
             }
         }
 
@@ -490,12 +494,22 @@
         async function loadProducts() {
             try {
                 const response = await fetch(`${API_BASE}/products`);
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({ error: `HTTP ${response.status}: ${response.statusText}` }));
+                    showAlert('加载商品失败: ' + (errorData.error || response.statusText), 'error');
+                    console.error('Load products error:', response.status, errorData);
+                    return;
+                }
                 const data = await response.json();
-                if (response.ok) {
+                if (data.products) {
                     renderProducts(data.products);
+                } else {
+                    showAlert('商品数据格式错误', 'error');
+                    console.error('Invalid products data:', data);
                 }
             } catch (error) {
-                showAlert('加载商品失败', 'error');
+                showAlert('加载商品失败: ' + error.message, 'error');
+                console.error('Load products exception:', error);
             }
         }
 

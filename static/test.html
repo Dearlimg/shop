@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>API 测试</title>
+    <style>
+        body { font-family: Arial; padding: 20px; }
+        .test { margin: 20px 0; padding: 10px; border: 1px solid #ccc; }
+        .success { background: #d4edda; }
+        .error { background: #f8d7da; }
+        pre { background: #f5f5f5; padding: 10px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>API 连接测试</h1>
+    <div id="results"></div>
+    <button onclick="testAPI()">测试 API</button>
+
+    <script>
+        async function testAPI() {
+            const results = document.getElementById('results');
+            results.innerHTML = '<div class="test">正在测试...</div>';
+
+            // 测试 1: 获取商品列表
+            try {
+                const response = await fetch('/api/products');
+                const data = await response.json();
+                
+                if (response.ok) {
+                    results.innerHTML = `
+                        <div class="test success">
+                            <h3>✅ API 连接成功</h3>
+                            <p>状态码: ${response.status}</p>
+                            <p>商品数量: ${data.products ? data.products.length : 0}</p>
+                            <pre>${JSON.stringify(data, null, 2)}</pre>
+                        </div>
+                    `;
+                } else {
+                    results.innerHTML = `
+                        <div class="test error">
+                            <h3>❌ API 返回错误</h3>
+                            <p>状态码: ${response.status}</p>
+                            <pre>${JSON.stringify(data, null, 2)}</pre>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                results.innerHTML = `
+                    <div class="test error">
+                        <h3>❌ 网络错误</h3>
+                        <p>${error.message}</p>
+                        <p>请检查：</p>
+                        <ul>
+                            <li>服务器是否正在运行</li>
+                            <li>端口是否正确（默认 8080）</li>
+                            <li>浏览器控制台是否有更多错误信息</li>
+                        </ul>
+                    </div>
+                `;
+            }
+        }
+
+        // 页面加载时自动测试
+        window.onload = testAPI;
+    </script>
+</body>
+</html>
+
