@@ -9,7 +9,7 @@ import (
 	"shop/model"
 )
 
-// CreateOrder 创建订单
+// CreateOrder 创建订单（使用购物车中所有商品）
 func CreateOrder(userID int, req *model.CreateOrderRequest) (int64, float64, error) {
 	// 开始事务
 	tx := db.DB.Begin()
@@ -18,6 +18,40 @@ func CreateOrder(userID int, req *model.CreateOrderRequest) (int64, float64, err
 			tx.Rollback()
 		}
 	}()
+
+	// 获取购物车中所有商品
+	cartItems, err := dao.GetCartItemsFromRedis(userID)
+	if err != nil {
+		tx.Rollback()
+		return 0, 0, fmt.Errorf("查询购物车失败: %w", err)
+	}
+
+	if len(cartItems) == 0 {
+		tx.Rollback()
+		return 0, 0, fmt.Errorf("购物车为空")
+	}
+
+	// 如果指定了商品ID列表，则只处理指定的商品；否则处理所有商品
+	var itemsToProcess []model.CartItem
+	if req != nil && req.CartItemIDs != nil && len(req.CartItemIDs) > 0 {
+		// 只处理指定的商品
+		productIDMap := make(map[int]bool)
+		for _, id := range req.CartItemIDs {
+			productIDMap[id] = true
+		}
+		for _, item := range cartItems {
+			if productIDMap[item.ProductID] {
+				itemsToProcess = append(itemsToProcess, item)
+			}
+		}
+		if len(itemsToProcess) == 0 {
+			tx.Rollback()
+			return 0, 0, fmt.Errorf("指定的商品不在购物车中")
+		}
+	} else {
+		// 处理购物车中所有商品
+		itemsToProcess = cartItems
+	}
 
 	// 查询购物车项并计算总价
 	var totalPrice float64
@@ -28,22 +62,18 @@ func CreateOrder(userID int, req *model.CreateOrderRequest) (int64, float64, err
 		price      float64
 	}
 
-	for _, productID := range req.CartItemIDs {
-		// Redis版本：直接使用productID，从Redis获取购物车项
-		cartItem, product, err := dao.GetCartItemWithProductFromRedis(userID, productID)
-		if err != nil {
+	for _, cartItem := range itemsToProcess {
+		// 获取商品信息
+		product, err := dao.GetProductByID(fmt.Sprintf("%d", cartItem.ProductID))
+		if err != nil || product == nil {
 			tx.Rollback()
-			return 0, 0, fmt.Errorf("查询购物车失败: %w", err)
-		}
-		if cartItem == nil {
-			tx.Rollback()
-			return 0, 0, fmt.Errorf("购物车项不存在")
+			return 0, 0, fmt.Errorf("商品不存在: %d", cartItem.ProductID)
 		}
 
 		// 检查库存
 		if cartItem.Quantity > product.Stock {
 			tx.Rollback()
-			return 0, 0, fmt.Errorf("商品库存不足: %s", product.Name)
+			return 0, 0, fmt.Errorf("商品库存不足: %s (需要: %d, 库存: %d)", product.Name, cartItem.Quantity, product.Stock)
 		}
 
 		itemTotal := product.Price * float64(cartItem.Quantity)
@@ -53,7 +83,7 @@ func CreateOrder(userID int, req *model.CreateOrderRequest) (int64, float64, err
 			productID  int
 			quantity   int
 			price      float64
-		}{productID, cartItem.ProductID, cartItem.Quantity, product.Price})
+		}{cartItem.ProductID, cartItem.ProductID, cartItem.Quantity, product.Price})
 	}
 
 	// 创建订单

@@ -21,13 +21,11 @@ func CreateOrder(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
+	// 创建订单请求（可选参数）
+	// 如果请求体为空或未提供 cart_item_ids，则使用购物车中所有商品
 	var req model.CreateOrderRequest
-	if err := c.BindAndValidate(&req); err != nil {
-		c.JSON(400, utils.H{
-			"error": "请求参数错误: " + err.Error(),
-		})
-		return
-	}
+	// 尝试绑定请求，如果失败或为空，则使用空请求（表示使用所有商品）
+	_ = c.BindAndValidate(&req) // 忽略错误，允许空请求体
 
 	orderID, totalPrice, err := logic.CreateOrder(userID.(int), &req)
 	if err != nil {

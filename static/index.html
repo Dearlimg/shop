@@ -809,27 +809,32 @@
             }
         }
 
-        // 结算
+        // 结算（使用购物车中所有商品）
         async function checkout() {
             if (cartItems.length === 0) {
                 showAlert('购物车为空', 'error');
                 return;
             }
 
-            const cartItemIDs = cartItems.map(item => item.product_id);
+            // 确认结算
+            if (!confirm(`确定要结算购物车中的 ${cartItems.length} 件商品吗？`)) {
+                return;
+            }
+
             try {
+                // 不传递商品ID列表，后端会自动使用购物车中所有商品
                 const response = await fetch(`${API_BASE}/orders`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${token}`
                     },
-                    body: JSON.stringify({ cart_item_ids: cartItemIDs })
+                    body: JSON.stringify({}) // 空对象，表示使用购物车中所有商品
                 });
 
                 const data = await response.json();
                 if (response.ok) {
-                    showAlert('订单创建成功');
+                    showAlert(`订单创建成功！订单号: ${data.order_id}，总金额: ¥${data.total_price.toFixed(2)}`);
                     cartItems = [];
                     loadCart();
                     loadOrders();

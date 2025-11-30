@@ -35,7 +35,7 @@ func (OrderItem) TableName() string {
 	return "order_items"
 }
 
-// CreateOrderRequest 创建订单请求
+// CreateOrderRequest 创建订单请求（可选，如果为空则使用购物车中所有商品）
 type CreateOrderRequest struct {
-	CartItemIDs []int `json:"cart_item_ids" binding:"required"`
+	CartItemIDs []int `json:"cart_item_ids"` // 可选，如果为空则使用购物车中所有商品
 }
