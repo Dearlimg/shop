@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  shop:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    container_name: shop-app
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      # 挂载静态文件（可选，如果需要动态更新可以取消注释）
+      # - ../static:/app/static:ro
+    environment:
+      - TZ=Asia/Shanghai
+    networks:
+      - shop-network
+    # 健康检查
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/api/products"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  shop-network:
+    driver: bridge
+

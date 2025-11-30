@@ -1,10 +1,9 @@
 package main
 
 import (
+	"fmt"
 	"log"
-	"os"
 
-	"shop/config"
 	"shop/global/db"
 	"shop/global/redis"
 	"shop/routers"
@@ -13,29 +12,33 @@ import (
 )
 
 func main() {
-	// 加载配置文件
-	configPath := os.Getenv("CONFIG_PATH")
-	if configPath == "" {
-		configPath = "config.yaml"
-	}
+	// 硬编码配置信息
+	databaseHost := "47.118.19.28"
+	databasePort := 3307
+	databaseUser := "root"
+	databasePassword := "sta_go"
+	databaseName := "durlim"
+	databaseCharset := "utf8mb4"
 
-	cfg, err := config.LoadConfig(configPath)
-	if err != nil {
-		log.Fatalf("Failed to load config: %v", err)
-	}
+	redisAddr := "47.118.19.28:6379"
+	redisPassword := "sta_go"
+	redisDB := 0
 
-	log.Printf("Loaded config from: %s", configPath)
-	log.Printf("Database: %s@%s:%d/%s", cfg.Database.User, cfg.Database.Host, cfg.Database.Port, cfg.Database.Database)
+	serverHost := "0.0.0.0"
+	serverPort := 8080
+
+	log.Printf("Database: %s@%s:%d/%s", databaseUser, databaseHost, databasePort, databaseName)
+	log.Printf("Redis: %s", redisAddr)
 
 	// 初始化数据库
-	dsn := cfg.Database.GetDSN()
+	dsn := getDSN(databaseUser, databasePassword, databaseHost, databasePort, databaseName, databaseCharset)
 	if err := db.InitDB(dsn); err != nil {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}
 	defer db.CloseDB()
 
 	// 初始化Redis
-	if err := redis.InitRedis(cfg.Redis.Addr, cfg.Redis.Password, cfg.Redis.DB); err != nil {
+	if err := redis.InitRedis(redisAddr, redisPassword, redisDB); err != nil {
 		log.Fatalf("Failed to initialize redis: %v", err)
 	}
 	defer redis.CloseRedis()
@@ -51,7 +54,7 @@ func main() {
 	}
 
 	// 创建Hertz服务器
-	serverAddr := cfg.Server.GetAddr()
+	serverAddr := getServerAddr(serverHost, serverPort)
 	log.Printf("Server starting on %s", serverAddr)
 	h := server.Default(server.WithHostPorts(serverAddr))
 
@@ -59,4 +62,15 @@ func main() {
 	routers.InitRouter(h)
 
 	h.Spin()
+}
+
+// getDSN 生成数据库连接字符串
+func getDSN(user, password, host string, port int, database, charset string) string {
+	return fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=%s&parseTime=True&loc=Local",
+		user, password, host, port, database, charset)
+}
+
+// getServerAddr 生成服务器地址
+func getServerAddr(host string, port int) string {
+	return fmt.Sprintf("%s:%d", host, port)
 }

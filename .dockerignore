@@ -1,0 +1,48 @@
+# Git
+.git
+.gitignore
+
+# 构建产物
+shop
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# 测试文件
+*.test
+*.out
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+*~
+
+# 日志
+*.log
+
+# 临时文件
+tmp/
+temp/
+*.tmp
+
+# 文档（可选，如果需要可以注释掉）
+# docs/
+
+# 部署相关
+deploy/
+Dockerfile
+.dockerignore
+docker-compose.yml
+
+# 配置文件（使用环境变量或挂载）
+config.yaml
+
+# 其他
+.DS_Store
+*.md
+!README.md
+
