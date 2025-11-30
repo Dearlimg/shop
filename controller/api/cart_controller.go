@@ -69,7 +69,7 @@ func AddToCart(ctx context.Context, c *app.RequestContext) {
 	})
 }
 
-// UpdateCartItem 更新购物车商品数量
+// UpdateCartItem 更新购物车商品数量（使用Redis，参数改为product_id）
 func UpdateCartItem(ctx context.Context, c *app.RequestContext) {
 	userID, exists := c.Get("user_id")
 	if !exists {
@@ -79,10 +79,11 @@ func UpdateCartItem(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	cartItemID, err := strconv.Atoi(c.Param("id"))
+	// Redis版本使用product_id而不是cart_item_id
+	productID, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
 		c.JSON(400, utils.H{
-			"error": "无效的购物车项ID",
+			"error": "无效的商品ID",
 		})
 		return
 	}
@@ -95,7 +96,7 @@ func UpdateCartItem(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	err = logic.UpdateCartItem(userID.(int), cartItemID, &req)
+	err = logic.UpdateCartItem(userID.(int), productID, &req)
 	if err != nil {
 		statusCode := 500
 		if err.Error() == "库存不足" || err.Error() == "购物车项不存在" {
@@ -112,7 +113,7 @@ func UpdateCartItem(ctx context.Context, c *app.RequestContext) {
 	})
 }
 
-// DeleteCartItem 删除购物车商品
+// DeleteCartItem 删除购物车商品（使用Redis，参数改为product_id）
 func DeleteCartItem(ctx context.Context, c *app.RequestContext) {
 	userID, exists := c.Get("user_id")
 	if !exists {
@@ -122,15 +123,16 @@ func DeleteCartItem(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	cartItemID, err := strconv.Atoi(c.Param("id"))
+	// Redis版本使用product_id而不是cart_item_id
+	productID, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
 		c.JSON(400, utils.H{
-			"error": "无效的购物车项ID",
+			"error": "无效的商品ID",
 		})
 		return
 	}
 
-	err = logic.DeleteCartItem(userID.(int), cartItemID)
+	err = logic.DeleteCartItem(userID.(int), productID)
 	if err != nil {
 		statusCode := 500
 		if err.Error() == "购物车项不存在" {

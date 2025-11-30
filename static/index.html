@@ -254,12 +254,41 @@
         }
 
         .quantity-control button {
-            width: 30px;
-            height: 30px;
+            width: 35px;
+            height: 35px;
             padding: 0;
             display: flex;
             align-items: center;
             justify-content: center;
+            border-radius: 50%;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 2px solid #667eea;
+            background: white;
+            color: #667eea;
+        }
+
+        .quantity-control button:hover:not(:disabled) {
+            transform: scale(1.1);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            background: #667eea;
+            color: white;
+        }
+
+        .quantity-control button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            border-color: #ccc;
+            color: #ccc;
+        }
+
+        .quantity-display {
+            min-width: 30px;
+            text-align: center;
+            font-weight: bold;
+            font-size: 16px;
         }
     </style>
 </head>
@@ -347,6 +376,8 @@
         let token = localStorage.getItem('token');
         let currentUser = null;
         let cartItems = [];
+        let updateTimers = new Map(); // 每个商品的防抖定时器
+        let pendingDeltas = new Map(); // 每个商品的待更新增量
 
         // 初始化
         window.onload = function() {
@@ -529,7 +560,7 @@
             `).join('');
         }
 
-        // 添加到购物车
+        // 添加到购物车（乐观更新）
         async function addToCart(productId) {
             if (!token) {
                 showAlert('请先登录', 'error');
@@ -537,6 +568,16 @@
                 return;
             }
 
+            // 检查是否已在购物车中
+            const existingItem = cartItems.find(item => item.product_id === productId);
+            if (existingItem) {
+                // 如果已存在，直接增量
+                incrementCartItem(productId);
+                return;
+            }
+
+            // 乐观更新：先添加到本地（需要商品信息）
+            // 由于需要商品信息，这里先发送请求，成功后更新UI
             try {
                 const response = await fetch(`${API_BASE}/cart`, {
                     method: 'POST',
@@ -549,7 +590,7 @@
 
                 const data = await response.json();
                 if (response.ok) {
-                    showAlert('已添加到购物车');
+                    // 成功后重新加载购物车以获取完整信息
                     loadCart();
                 } else {
                     showAlert(data.error || '添加失败', 'error');
@@ -592,16 +633,16 @@
                 const itemTotal = item.product.price * item.quantity;
                 total += itemTotal;
                 return `
-                    <div class="cart-item">
+                    <div class="cart-item" data-product-id="${item.product_id}">
                         <div>
                             <strong>${item.product.name}</strong>
-                            <div>¥${item.product.price.toFixed(2)} × ${item.quantity} = ¥${itemTotal.toFixed(2)}</div>
+                            <div>¥${item.product.price.toFixed(2)} × <span class="item-quantity">${item.quantity}</span> = ¥<span class="item-total">${itemTotal.toFixed(2)}</span></div>
                         </div>
                         <div class="quantity-control">
-                            <button onclick="updateCartItem(${item.id}, ${item.quantity - 1})">-</button>
-                            <span>${item.quantity}</span>
-                            <button onclick="updateCartItem(${item.id}, ${item.quantity + 1})">+</button>
-                            <button class="btn-secondary" onclick="deleteCartItem(${item.id})" style="margin-left:10px;">删除</button>
+                            <button onclick="decrementCartItem(${item.product_id})" ${item.quantity <= 1 ? 'disabled' : ''}>-</button>
+                            <span class="quantity-display">${item.quantity}</span>
+                            <button onclick="incrementCartItem(${item.product_id})">+</button>
+                            <button class="btn-secondary" onclick="deleteCartItem(${item.product_id})" style="margin-left:10px;">删除</button>
                         </div>
                     </div>
                 `;
@@ -610,15 +651,115 @@
             document.getElementById('cartTotal').textContent = `总计: ¥${total.toFixed(2)}`;
         }
 
-        // 更新购物车项
-        async function updateCartItem(itemId, quantity) {
+        // 增量更新购物车（乐观更新）
+        function incrementCartItem(productId) {
+            if (!token) {
+                showAlert('请先登录', 'error');
+                return;
+            }
+
+            // 乐观更新：立即更新UI
+            const item = cartItems.find(i => i.product_id === productId);
+            if (item) {
+                item.quantity += 1;
+                renderCart();
+            } else {
+                // 如果不在购物车中，先添加到本地
+                // 这里需要先获取商品信息，简化处理：直接调用API
+                addToCart(productId);
+                return;
+            }
+
+            // 防抖：延迟发送请求
+            debouncedUpdateCart(productId, 1);
+        }
+
+        // 减量更新购物车（乐观更新）
+        function decrementCartItem(productId) {
+            if (!token) {
+                showAlert('请先登录', 'error');
+                return;
+            }
+
+            const item = cartItems.find(i => i.product_id === productId);
+            if (!item) return;
+
+            // 如果数量为1，直接删除
+            if (item.quantity <= 1) {
+                deleteCartItem(productId);
+                return;
+            }
+
+            // 乐观更新：立即更新UI
+            item.quantity -= 1;
+            renderCart();
+
+            // 防抖：延迟发送请求
+            debouncedUpdateCart(productId, -1);
+        }
+
+        // 防抖更新购物车（每个商品独立防抖，合并快速操作）
+        function debouncedUpdateCart(productId, delta) {
+            // 累加待更新的增量
+            const currentDelta = pendingDeltas.get(productId) || 0;
+            pendingDeltas.set(productId, currentDelta + delta);
+
+            // 清除该商品之前的定时器
+            const existingTimer = updateTimers.get(productId);
+            if (existingTimer) {
+                clearTimeout(existingTimer);
+            }
+
+            // 设置新的定时器
+            const timer = setTimeout(() => {
+                const totalDelta = pendingDeltas.get(productId) || 0;
+                pendingDeltas.delete(productId);
+                if (totalDelta !== 0) {
+                    syncCartItem(productId, totalDelta);
+                }
+                updateTimers.delete(productId);
+            }, 300); // 300ms 防抖
+
+            updateTimers.set(productId, timer);
+        }
+
+        // 同步购物车项到服务器
+        async function syncCartItem(productId, delta) {
+            if (!token) return;
+
+            try {
+                const response = await fetch(`${API_BASE}/cart/${productId}/increment`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ delta })
+                });
+
+                if (!response.ok) {
+                    const data = await response.json();
+                    // 如果失败，重新加载购物车以恢复正确状态
+                    loadCart();
+                    showAlert(data.error || '更新失败', 'error');
+                }
+                // 成功时不显示提示，保持流畅体验
+            } catch (error) {
+                // 网络错误时重新加载购物车
+                loadCart();
+                console.error('Sync cart error:', error);
+            }
+        }
+
+        // 更新购物车项（保留原有方法，用于直接设置数量）
+        async function updateCartItem(productId, quantity) {
             if (quantity < 1) {
-                deleteCartItem(itemId);
+                deleteCartItem(productId);
                 return;
             }
 
             try {
-                const response = await fetch(`${API_BASE}/cart/${itemId}`, {
+                const response = await fetch(`${API_BASE}/cart/${productId}`, {
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json',
@@ -638,22 +779,32 @@
             }
         }
 
-        // 删除购物车项
-        async function deleteCartItem(itemId) {
+        // 删除购物车项（乐观更新）
+        async function deleteCartItem(productId) {
+            if (!token) {
+                showAlert('请先登录', 'error');
+                return;
+            }
+
+            // 乐观更新：立即从UI移除
+            cartItems = cartItems.filter(item => item.product_id !== productId);
+            renderCart();
+
             try {
-                const response = await fetch(`${API_BASE}/cart/${itemId}`, {
+                const response = await fetch(`${API_BASE}/cart/${productId}`, {
                     method: 'DELETE',
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
 
-                const data = await response.json();
-                if (response.ok) {
-                    showAlert('已删除');
+                if (!response.ok) {
+                    // 如果失败，重新加载购物车
                     loadCart();
-                } else {
+                    const data = await response.json();
                     showAlert(data.error || '删除失败', 'error');
                 }
             } catch (error) {
+                // 网络错误时重新加载购物车
+                loadCart();
                 showAlert('网络错误', 'error');
             }
         }
@@ -665,7 +816,7 @@
                 return;
             }
 
-            const cartItemIDs = cartItems.map(item => item.id);
+            const cartItemIDs = cartItems.map(item => item.product_id);
             try {
                 const response = await fetch(`${API_BASE}/orders`, {
                     method: 'POST',

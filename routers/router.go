@@ -16,7 +16,7 @@ func InitRouter(h *server.Hertz) {
 	// CORS中间件（需要在所有路由之前）
 	h.Use(func(ctx context.Context, c *app.RequestContext) {
 		c.Header("Access-Control-Allow-Origin", "*")
-		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
 		c.Header("Access-Control-Allow-Headers", "Content-Type, Authorization")
 		if string(c.Method()) == consts.MethodOptions {
 			c.AbortWithStatus(consts.StatusNoContent)
@@ -43,6 +43,7 @@ func InitRouter(h *server.Hertz) {
 			// 购物车
 			authGroup.GET("/cart", api.GetCart)
 			authGroup.POST("/cart", api.AddToCart)
+			authGroup.PATCH("/cart/:id/increment", api.IncrementCartItem) // 增量更新（+1/-1）
 			authGroup.PUT("/cart/:id", api.UpdateCartItem)
 			authGroup.DELETE("/cart/:id", api.DeleteCartItem)
 

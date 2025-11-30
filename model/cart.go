@@ -28,3 +28,8 @@ type AddToCartRequest struct {
 type UpdateCartRequest struct {
 	Quantity int `json:"quantity" binding:"required,min=1"`
 }
+
+// IncrementCartRequest 增量更新购物车请求
+type IncrementCartRequest struct {
+	Delta int `json:"delta" binding:"required"` // 增量值，+1 或 -1
+}

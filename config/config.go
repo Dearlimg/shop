@@ -10,6 +10,7 @@ import (
 // Config 应用配置
 type Config struct {
 	Database DatabaseConfig `yaml:"database"`
+	Redis    RedisConfig    `yaml:"redis"`
 	Server   ServerConfig   `yaml:"server"`
 }
 
@@ -21,6 +22,13 @@ type DatabaseConfig struct {
 	Password string `yaml:"password"`
 	Database string `yaml:"database"`
 	Charset  string `yaml:"charset"`
+}
+
+// RedisConfig Redis配置
+type RedisConfig struct {
+	Addr     string `yaml:"addr"`     // Redis地址，格式: host:port
+	Password string `yaml:"password"` // Redis密码，空字符串表示无密码
+	DB       int    `yaml:"db"`       // Redis数据库编号，默认0
 }
 
 // ServerConfig 服务器配置
@@ -64,6 +72,9 @@ func LoadConfig(configPath string) (*Config, error) {
 	}
 	if config.Database.Charset == "" {
 		config.Database.Charset = "utf8mb4"
+	}
+	if config.Redis.Addr == "" {
+		config.Redis.Addr = "localhost:6379"
 	}
 	if config.Server.Port == 0 {
 		config.Server.Port = 8080

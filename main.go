@@ -6,6 +6,7 @@ import (
 
 	"shop/config"
 	"shop/global/db"
+	"shop/global/redis"
 	"shop/routers"
 
 	"github.com/cloudwego/hertz/pkg/app/server"
@@ -32,6 +33,12 @@ func main() {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}
 	defer db.CloseDB()
+
+	// 初始化Redis
+	if err := redis.InitRedis(cfg.Redis.Addr, cfg.Redis.Password, cfg.Redis.DB); err != nil {
+		log.Fatalf("Failed to initialize redis: %v", err)
+	}
+	defer redis.CloseRedis()
 
 	// 创建表
 	if err := db.CreateTables(); err != nil {

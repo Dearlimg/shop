@@ -13,6 +13,7 @@
 
 - **后端**: Hertz (Go 语言) - RESTful API
 - **ORM**: GORM - Go 语言的 ORM 框架
+- **缓存**: Redis - 购物车数据存储
 - **前端**: HTML + JavaScript
 - **数据库**: MySQL
 
@@ -61,6 +62,7 @@ shop/
 
 - Go 1.21+
 - MySQL 5.7+
+- Redis 6.0+ (用于购物车存储)
 
 ## 安装和运行
 
@@ -70,9 +72,34 @@ shop/
 go mod tidy
 ```
 
-### 2. 配置数据库
+### 2. 安装 Redis
 
-编辑 `config.yaml` 文件，配置数据库连接信息：
+**macOS:**
+```bash
+brew install redis
+brew services start redis
+```
+
+**Linux:**
+```bash
+sudo apt-get install redis-server
+sudo systemctl start redis
+```
+
+**Docker:**
+```bash
+docker run -d -p 6379:6379 redis:latest
+```
+
+验证 Redis 是否运行：
+```bash
+redis-cli ping
+# 应该返回: PONG
+```
+
+### 3. 配置数据库和 Redis
+
+编辑 `config.yaml` 文件，配置数据库和 Redis 连接信息：
 
 ```yaml
 database:
@@ -83,14 +110,21 @@ database:
   database: blog           # 数据库名称
   charset: utf8mb4         # 字符集
 
+redis:
+  addr: localhost:6379     # Redis地址
+  password: ""             # Redis密码，无密码留空
+  db: 0                    # Redis数据库编号
+
 server:
   port: 8080               # 服务器端口
   host: "0.0.0.0"          # 服务器地址
 ```
 
-**注意**: 请确保数据库已创建，程序会自动创建所需的表结构。
+**注意**: 
+- 请确保数据库已创建，程序会自动创建所需的表结构
+- 请确保 Redis 服务正在运行
 
-### 3. 运行程序
+### 4. 运行程序
 
 默认使用项目根目录下的 `config.yaml` 文件：
 
@@ -107,7 +141,7 @@ go run main.go
 
 服务器将根据配置文件中的设置启动（默认 `http://0.0.0.0:8080`）。
 
-### 4. 访问网站
+### 5. 访问网站
 
 在浏览器中打开 `http://localhost:8080`
 
@@ -163,9 +197,21 @@ export CONFIG_PATH="/path/to/your/config.yaml"
 go run main.go
 ```
 
+## 购物车实现
+
+项目使用 **Redis** 实现购物车功能，相比 MySQL 有以下优势：
+
+- ⚡ **高性能**: 内存存储，读写速度极快（性能提升 5-10 倍）
+- 🕐 **自动过期**: 购物车数据30天后自动清理
+- 📊 **减轻数据库压力**: 购物车操作频繁，使用 Redis 可以显著提升性能
+
+详细说明请查看：[Redis 购物车实现文档](./docs/REDIS_CART.md)
+
 ## 注意事项
 
 - 首次运行会自动创建数据库表和初始化商品数据
+- **Redis 必需**: 购物车功能依赖 Redis，请确保 Redis 服务正在运行
 - Token 认证为简化实现，生产环境建议使用 JWT
 - 前端使用 localStorage 存储 token，刷新页面后仍保持登录状态
 - **重要**: 请妥善保管 `config.yaml` 文件，不要将包含敏感信息的配置文件提交到版本控制系统
+- **购物车数据**: 存储在 Redis 中，重启 Redis 可能导致购物车数据丢失（这是正常的，购物车是临时数据）

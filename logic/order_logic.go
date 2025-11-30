@@ -1,7 +1,6 @@
 package logic
 
 import (
-	"errors"
 	"fmt"
 
 	"gorm.io/gorm"
@@ -29,8 +28,9 @@ func CreateOrder(userID int, req *model.CreateOrderRequest) (int64, float64, err
 		price      float64
 	}
 
-	for _, cartItemID := range req.CartItemIDs {
-		cartItem, product, err := getCartItemWithProductTx(tx, cartItemID, userID)
+	for _, productID := range req.CartItemIDs {
+		// Redis版本：直接使用productID，从Redis获取购物车项
+		cartItem, product, err := dao.GetCartItemWithProductFromRedis(userID, productID)
 		if err != nil {
 			tx.Rollback()
 			return 0, 0, fmt.Errorf("查询购物车失败: %w", err)
@@ -53,7 +53,7 @@ func CreateOrder(userID int, req *model.CreateOrderRequest) (int64, float64, err
 			productID  int
 			quantity   int
 			price      float64
-		}{cartItem.ID, cartItem.ProductID, cartItem.Quantity, product.Price})
+		}{productID, cartItem.ProductID, cartItem.Quantity, product.Price})
 	}
 
 	// 创建订单
@@ -89,9 +89,8 @@ func CreateOrder(userID int, req *model.CreateOrderRequest) (int64, float64, err
 			return 0, 0, fmt.Errorf("更新库存失败: %w", err)
 		}
 
-		// 删除购物车项
-		if err := tx.Where("id = ? AND user_id = ?", item.cartItemID, userID).
-			Delete(&model.CartItem{}).Error; err != nil {
+		// 从Redis删除购物车项
+		if err := dao.DeleteCartItemFromRedis(userID, item.productID); err != nil {
 			// 这里不阻止订单创建，只记录错误
 		}
 	}
@@ -102,19 +101,6 @@ func CreateOrder(userID int, req *model.CreateOrderRequest) (int64, float64, err
 	}
 
 	return int64(order.ID), totalPrice, nil
-}
-
-// getCartItemWithProductTx 在事务中获取购物车项及其商品信息
-func getCartItemWithProductTx(tx *gorm.DB, cartItemID, userID int) (*model.CartItem, *model.Product, error) {
-	var cartItem model.CartItem
-	err := tx.Preload("Product").Where("id = ? AND user_id = ?", cartItemID, userID).First(&cartItem).Error
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, nil, nil
-		}
-		return nil, nil, err
-	}
-	return &cartItem, &cartItem.Product, nil
 }
 
 // GetOrders 获取订单历史
