@@ -1,0 +1,12 @@
+database:
+  host: localhost          # 数据库地址
+  port: 3306               # 数据库端口
+  user: root               # 数据库用户名
+  password: password       # 数据库密码
+  database: shop           # 数据库名称
+  charset: utf8mb4         # 字符集
+
+server:
+  port: 8080               # 服务器端口
+  host: "0.0.0.0"          # 服务器地址（0.0.0.0 表示监听所有网络接口）
+
