@@ -113,15 +113,17 @@ go run main.go
 
 ## API 接口
 
-### 公开接口
+详细的 API 接口文档请查看：[API 接口文档](./docs/API.md)
 
+### 快速参考
+
+**公开接口**:
 - `POST /api/register` - 用户注册
 - `POST /api/login` - 用户登录
 - `GET /api/products` - 获取商品列表
 - `GET /api/products/:id` - 获取商品详情
 
-### 需要认证的接口（需在 Header 中添加 `Authorization: Bearer {token}`）
-
+**需要认证的接口**（需在 Header 中添加 `Authorization: Bearer {token}`）:
 - `GET /api/cart` - 获取购物车
 - `POST /api/cart` - 添加到购物车
 - `PUT /api/cart/:id` - 更新购物车商品数量
