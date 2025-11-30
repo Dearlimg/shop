@@ -23,21 +23,35 @@ shop/
 ├── config.yaml          # 配置文件
 ├── config/              # 配置相关
 │   └── config.go
-├── models/              # 数据模型
+├── model/               # 数据模型
 │   ├── user.go
 │   ├── product.go
 │   ├── cart.go
 │   └── order.go
-├── handlers/            # API处理器
-│   ├── user_handler.go
-│   ├── product_handler.go
-│   ├── cart_handler.go
-│   └── order_handler.go
-├── database/           # 数据库相关
-│   ├── database.go
-│   └── migrations.go
+├── dao/                 # 数据访问层
+│   ├── user_dao.go
+│   ├── product_dao.go
+│   ├── cart_dao.go
+│   └── order_dao.go
+├── logic/               # 业务逻辑层
+│   ├── user_logic.go
+│   ├── product_logic.go
+│   ├── cart_logic.go
+│   └── order_logic.go
+├── controller/         # 控制器层
+│   └── api/
+│       ├── user_controller.go
+│       ├── product_controller.go
+│       ├── cart_controller.go
+│       └── order_controller.go
+├── routers/            # 路由
+│   └── router.go
 ├── middleware/         # 中间件
 │   └── auth.go
+├── global/             # 全局变量
+│   └── db/
+│       ├── db.go
+│       └── migrations.go
 └── static/            # 前端静态文件
     └── index.html
 ```
